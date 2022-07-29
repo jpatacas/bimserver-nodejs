@@ -1,24 +1,27 @@
 const needle = require('needle');
 const fs = require('fs');
+const cors = require("cors");
+const express = require('express')
 
-// var static = require('node-static');
-// var http = require('http');
+//setup basic express server
+const app = express();
+const port = 8088;
 
-// var file = new(static.Server)(__dirname);
+app.use(cors());
 
-// http.createServer(function (req, res) {
-//   file.serve(req, res);
-// }).listen(8088);
+app.get('/', (req, res) => res.send('Hello Multiverse!'))
+app.listen(port, () => console.log(`Example app listening on port ${port}!`))
 
-//const { delimiter } = require('path/posix');
+app.use(express.static('./')) //serves files on root folder
 
+//bimserver details
 let address = "http://localhost:8082/";
 
 let username = "admin@bimserver.org";
 let password = "admin";
 let options = { json: true };
 
-// let query = { //how to get entire model?
+// let query = { //see examples at bimviews plugin
 //     type: {
 //       name: "IfcProduct",
 //       includeAllSubTypes: true,
@@ -122,104 +125,104 @@ let loginData = {
 // })
 
 //download ifc model
-needle.post(address + 'json', loginData, options, (err, resp) =>
-{
-    if (err) {
-            console.log(err)
-        }
-    let token = resp.body.response.result;
-    //getSerializerByContentType
-    let serializerByContentType = {
-        "token": token,
-        "request" : {
-            "interface" : "ServiceInterface",
-            "method" : "getSerializerByContentType",
-            "parameters" : {
-                "contentType": "application/ifc",
-            }
-        }
-    }
-    needle.post(address + 'json', serializerByContentType, options, (err, resp) =>
-    {
-        if (err) {
-            console.log(err)
-        }
+// needle.post(address + 'json', loginData, options, (err, resp) =>
+// {
+//     if (err) {
+//             console.log(err)
+//         }
+//     let token = resp.body.response.result;
+//     //getSerializerByContentType
+//     let serializerByContentType = {
+//         "token": token,
+//         "request" : {
+//             "interface" : "ServiceInterface",
+//             "method" : "getSerializerByContentType",
+//             "parameters" : {
+//                 "contentType": "application/ifc",
+//             }
+//         }
+//     }
+//     needle.post(address + 'json', serializerByContentType, options, (err, resp) =>
+//     {
+//         if (err) {
+//             console.log(err)
+//         }
 
-        let serializerOid = resp.body.response.result.oid;
+//         let serializerOid = resp.body.response.result.oid;
 
-        let download = {
-            "token": token,
-            "request": {
-                "interface": "ServiceInterface",
-                "method": "download",
-                "parameters": {
-                    "roids": [1245187], //test various
-                    "query": JSON.stringify(query),
-                    "serializerOid": serializerOid,
-                    "sync": false
-                }
-            }
-        }
-        console.log("serializerOid" + serializerOid);
-    //download
-        needle.post(address + 'json', download, options, (err,resp)=> {
-            if (err) {
-                console.log(err)
-            }
+//         let download = {
+//             "token": token,
+//             "request": {
+//                 "interface": "ServiceInterface",
+//                 "method": "download",
+//                 "parameters": {
+//                     "roids": [1245187], //test various
+//                     "query": JSON.stringify(query),
+//                     "serializerOid": serializerOid,
+//                     "sync": false
+//                 }
+//             }
+//         }
+//         console.log("serializerOid" + serializerOid);
+//     //download
+//         needle.post(address + 'json', download, options, (err,resp)=> {
+//             if (err) {
+//                 console.log(err)
+//             }
 
-            let topicId = resp.body.response.result;
-             //getDownloadData using topicId
-             let downloadData = {
-                "token": token,
-                "request": {
-                    "interface" : "ServiceInterface",
-                    "method": "getDownloadData",
-                    "parameters": {
-                        "topicId": topicId
-                    }
-                }
-             }
-             console.log("topic id" + topicId);
+//             let topicId = resp.body.response.result;
+//              //getDownloadData using topicId
+//              let downloadData = {
+//                 "token": token,
+//                 "request": {
+//                     "interface" : "ServiceInterface",
+//                     "method": "getDownloadData",
+//                     "parameters": {
+//                         "topicId": topicId
+//                     }
+//                 }
+//              }
+//              console.log("topic id" + topicId);
 
-            let progress = {
-                "token": token,
-                "request": {
-                  "interface": "NotificationRegistryInterface", 
-                  "method": "getProgress", 
-                  "parameters": {
-                    "topicId": topicId
-                  }
-                }
-              }
+//             let progress = {
+//                 "token": token,
+//                 "request": {
+//                   "interface": "NotificationRegistryInterface", 
+//                   "method": "getProgress", 
+//                   "parameters": {
+//                     "topicId": topicId
+//                   }
+//                 }
+//               }
 
-              needle.post(address + 'json', progress, options, (err,resp)=> {
-                if (err) {
-                    console.log(err)
-                }
+//               needle.post(address + 'json', progress, options, (err,resp)=> {
+//                 if (err) {
+//                     console.log(err)
+//                 }
             
-                console.log("progress: " + resp.body.response.result);
+//                 console.log("progress: " + resp.body.response.result);
 
-             needle.post(address + 'json', downloadData, options, (err,resp)=> {
-                if (err) {
-                    console.log(err)
-                }
+//              needle.post(address + 'json', downloadData, options, (err,resp)=> {
+//                 if (err) {
+//                     console.log(err)
+//                 }
 
-                //console.log("downloadData" + resp.body.response.result.file);            
+//                 //console.log("downloadData" + resp.body.response.result.file);            
 
-                var fileData = resp.body.response.result.file;
-                var fileString = new Buffer(fileData, "base64");
+//                 var fileData = resp.body.response.result.file;
+//                 var fileString = new Buffer(fileData, "base64");
 
-                fs.writeFile( 'testmodel.ifc', fileString, function(err) { //localhost?
-                    if (err) throw err;
-                    //console.log('saved', rev.oid);
-                    //callback();
-                  });
+//                 fs.writeFile( 'testmodel.ifc', fileString, function(err) { //localhost?
+//                     if (err) throw err;
+//                     //console.log('saved', rev.oid);
+//                     //callback();
+//                   });
 
-             })
-        })
-    })
-    })
+//              })
+//         })
+//     })
+//     })
 
 
    
-})
+// })
