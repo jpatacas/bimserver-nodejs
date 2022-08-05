@@ -28,9 +28,9 @@ io.on("connection", (socket) => {
   console.log("a user connected");
   socket.emit("hello", "world");
 
-  socket.on("howdy", (arg) => {
-    console.log(arg);
-  });
+  // socket.on("howdy", (arg) => {
+  //   console.log(arg);
+  // });
 
   //create project
   socket.on(
@@ -68,8 +68,60 @@ io.on("connection", (socket) => {
     }
   );
 
- //socket on downloadifcmodel (input project id?, get latest revision?)
+  //get list of projects in bimserver
+  socket.on("getProjects", (arg) => {
+    needle.post(address + "json", loginData, options, (err, resp) => {
+      if (err) {
+        console.log(err);
+      }
+      let token = resp.body.response.result;
 
+      let getAllProjectsData = {
+        token: token,
+        request: {
+          interface: "ServiceInterface",
+          method: "getAllProjects",
+          parameters: {
+            onlyTopLevel: false,
+            onlyActive: true,
+          },
+        },
+      };
+
+      needle.post(
+        address + "json",
+        getAllProjectsData,
+        options,
+        (err, resp) => {
+          //console.log(resp.body.response.result);
+          // for (let res in resp.body.response.result)
+          // {
+          //   console.log(res)
+          //   socket.emit("projectIds", res)
+          // };
+
+          let res = resp.body.response.result;
+          let reslist = [];
+
+      
+          res.forEach(element => {
+           //onsole.log(element.oid);
+           reslist.push(element.oid);
+          });
+
+          // for (let res in resp.body.response.result)
+          // {
+          //   console.log(res.oid)
+          // }
+
+          //console.log(resp.body.response.result)
+          socket.emit("projectIds", reslist)
+        }
+      );
+    });
+
+    //socket on downloadifcmodel (input project id?, get latest revision?)
+  });
 });
 
 server.listen(port, () =>
