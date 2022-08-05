@@ -1,18 +1,81 @@
-const needle = require('needle');
-const fs = require('fs');
+const needle = require("needle");
+const fs = require("fs");
 const cors = require("cors");
-const express = require('express')
+const express = require("express");
+const { Server } = require("socket.io");
+const { Socket } = require("dgram");
+const http = require("http");
 
 //setup basic express server
 const app = express();
 const port = 8088;
-
 app.use(cors());
+app.use(express.static("./")); //serves files on root folder
 
-app.get('/', (req, res) => res.send('Hello Multiverse!'))
-app.listen(port, () => console.log(`Example app listening on port ${port}!`))
+const server = http.createServer(app);
+//const io = new Server(server);
 
-app.use(express.static('./')) //serves files on root folder
+const io = require("socket.io")(server, {
+  cors: {
+    origin: "http://127.0.0.1:5500", //the client app
+    methods: ["GET", "POST"],
+  },
+});
+
+//app.get('/', (req, res) => res.send('Hello Multiverse!'))
+
+io.on("connection", (socket) => {
+  console.log("a user connected");
+  socket.emit("hello", "world");
+
+  socket.on("howdy", (arg) => {
+    console.log(arg);
+  });
+
+  //create project
+  socket.on(
+    "createProject", //callbak here) //works
+    (arg) => {
+      needle.post(address + "json", loginData, options, (err, resp) => {
+        if (err) {
+          console.log(err);
+        }
+
+        var token = resp.body.response.result;
+
+        //console.log("logged in ", token);
+
+        let addProjectData = {
+          token: token,
+          request: {
+            interface: "ServiceInterface",
+            method: "addProject",
+            parameters: {
+              projectName: "testproject" + Math.random(),
+              schema: "ifc2x3tc1",
+            },
+          },
+        };
+
+        //add a project
+        needle.post(address + "json", addProjectData, options, (err, resp) => {
+          if (err) {
+            console.log(err);
+          }
+        });
+      });
+      //uncomment to add project only
+    }
+  );
+
+ //socket on downloadifcmodel (input project id?, get latest revision?)
+
+});
+
+server.listen(port, () =>
+  console.log(`Example app listening on port ${port}!`)
+);
+//app?
 
 //bimserver details
 let address = "http://localhost:8082/";
@@ -26,21 +89,21 @@ let options = { json: true };
 //       name: "IfcProduct",
 //       includeAllSubTypes: true,
 //     },
-//   };  
+//   };
 
 let query = {};
 
 //login
 
 let loginData = {
-  "request": {
-    "interface": "AuthInterface", 
-    "method": "login", 
-    "parameters": {
-      "username": username,
-      "password": password
-    }
-  }
+  request: {
+    interface: "AuthInterface",
+    method: "login",
+    parameters: {
+      username: username,
+      password: password,
+    },
+  },
 };
 
 //create project and upload model
@@ -49,7 +112,7 @@ let loginData = {
 //     if (err) {
 //         console.log(err)
 //     }
-    
+
 //     var token = resp.body.response.result;
 
 //     //console.log("logged in ", token);
@@ -57,13 +120,13 @@ let loginData = {
 //     let addProjectData = {
 //         "token": token,
 //         "request": {
-//             "interface": "ServiceInterface", 
-//             "method": "addProject", 
+//             "interface": "ServiceInterface",
+//             "method": "addProject",
 //             "parameters": {
 //                 "projectName": "testproject" + Math.random(),
 //                 "schema": "ifc2x3tc1"
 //             }
-//         }   
+//         }
 //     }
 
 //     //add a project
@@ -78,8 +141,8 @@ let loginData = {
 //         let serializerData = {
 //             "token": token,
 //             "request": {
-//                 "interface": "ServiceInterface", 
-//                 "method": "getSuggestedDeserializerForExtension", 
+//                 "interface": "ServiceInterface",
+//                 "method": "getSuggestedDeserializerForExtension",
 //                 "parameters": {
 //                   "extension": "ifc",
 //                   "poid": poid
@@ -99,18 +162,18 @@ let loginData = {
 //             let checkin = {
 //                 "token": token,
 //                 "request": {
-//                   "interface": "ServiceInterface", 
-//                   "method": "checkinFromUrlSync", 
+//                   "interface": "ServiceInterface",
+//                   "method": "checkinFromUrlSync",
 //                   "parameters": {
 //                     "poid": poid,
 //                     "comment": "",
 //                     "deserializerOid": serid,
 //                     "fileName": "TESTED_Simple_project_01.ifc",
-//                     "url": "http://192.168.56.1:5500/TESTED_Simple_project_01.ifc", //need to change this
+//                     "url": "http://192.168.56.1:5500/" + "", //need to change this to url plus (input from socket.io)
 //                     "merge": "false"
 //                   }
 //                 }
-//               } 
+//               }
 
 //             needle.post(address + 'json', checkin, options, (err, resp) => {
 //                 if (err) {
@@ -123,6 +186,8 @@ let loginData = {
 
 //     })
 // })
+
+//socket on, download ifc model
 
 //download ifc model
 // needle.post(address + 'json', loginData, options, (err, resp) =>
@@ -187,8 +252,8 @@ let loginData = {
 //             let progress = {
 //                 "token": token,
 //                 "request": {
-//                   "interface": "NotificationRegistryInterface", 
-//                   "method": "getProgress", 
+//                   "interface": "NotificationRegistryInterface",
+//                   "method": "getProgress",
 //                   "parameters": {
 //                     "topicId": topicId
 //                   }
@@ -199,7 +264,7 @@ let loginData = {
 //                 if (err) {
 //                     console.log(err)
 //                 }
-            
+
 //                 console.log("progress: " + resp.body.response.result);
 
 //              needle.post(address + 'json', downloadData, options, (err,resp)=> {
@@ -207,7 +272,7 @@ let loginData = {
 //                     console.log(err)
 //                 }
 
-//                 //console.log("downloadData" + resp.body.response.result.file);            
+//                 //console.log("downloadData" + resp.body.response.result.file);
 
 //                 var fileData = resp.body.response.result.file;
 //                 var fileString = new Buffer(fileData, "base64");
@@ -223,6 +288,4 @@ let loginData = {
 //     })
 //     })
 
-
-   
 // })
