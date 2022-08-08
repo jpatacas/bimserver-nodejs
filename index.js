@@ -93,34 +93,207 @@ io.on("connection", (socket) => {
         getAllProjectsData,
         options,
         (err, resp) => {
-          //console.log(resp.body.response.result);
-          // for (let res in resp.body.response.result)
-          // {
-          //   console.log(res)
-          //   socket.emit("projectIds", res)
-          // };
-
+          if (err) {
+            console.log(err);
+          }
           let res = resp.body.response.result;
           let reslist = [];
+          let resname = [];
+          //let map1 = new Map();
 
-      
-          res.forEach(element => {
-           //onsole.log(element.oid);
-           reslist.push(element.oid);
+          res.forEach((element) => {
+            //onsole.log(element.oid);
+            reslist.push(element.oid);
+            //map1.set(element.oid, element.name);
           });
 
-          // for (let res in resp.body.response.result)
-          // {
-          //   console.log(res.oid)
-          // }
+          res.forEach((element) => {
+            //onsole.log(element.oid);
+            resname.push(element.name);
+          });
 
-          //console.log(resp.body.response.result)
-          socket.emit("projectIds", reslist)
+          // res.forEach(element => {
+          //   map1.set(element.oid, element.name);
+          // })
+
+          // map1.forEach(function(value, key) {
+          //   console.log(key + ' = ' + value)
+          // })
+
+          socket.emit("projectIds", resname, reslist);
         }
       );
     });
 
     //socket on downloadifcmodel (input project id?, get latest revision?)
+  });
+
+  //get latest revision given project id
+
+  socket.on("getLatestRevision", (currentProjectID) => {
+    needle.post(address + "json", loginData, options, (err, resp) => {
+      if (err) {
+        console.log(err);
+      }
+      let token = resp.body.response.result;
+      //getSerializerByContentType
+      let serializerByContentType = {
+        token: token,
+        request: {
+          interface: "ServiceInterface",
+          method: "getSerializerByContentType",
+          parameters: {
+            contentType: "application/ifc",
+          },
+        },
+      };
+      needle.post(
+        address + "json",
+        serializerByContentType,
+        options,
+        (err, resp) => {
+          if (err) {
+            console.log(err);
+          }
+
+          let serializerOid = resp.body.response.result.oid;
+
+          //get revision
+
+          let getRevisionProject = {
+            token: token,
+            request: {
+              interface: "ServiceInterface",
+              method: "getAllRevisionsOfProject",
+              parameters: {
+                poid: currentProjectID,
+              },
+            },
+          };
+
+          needle.post(
+            address + "json",
+            getRevisionProject,
+            options,
+            (err, resp) => {
+              if (err) {
+                console.log(err);
+              }
+
+              let res = resp.body.response.result; //undefined?
+
+              let revisionId = [];
+
+              res.forEach((element) => {
+                //onsole.log(element.oid);
+                revisionId.push(element.oid);
+                //map1.set(element.oid, element.name);
+              });
+    
+              console.log("rev id: " + revisionId);
+
+              //if not exists ifc file with this revision...
+              let fileName = "model" + currentProjectID + revisionId.toString() + ".ifc";
+
+              if (!fs.existsSync("./" + fileName))
+              {
+                let download = {
+                  token: token,
+                  request: {
+                    interface: "ServiceInterface",
+                    method: "download",
+                    parameters: {
+                      roids: revisionId, //array/list of revisions, need to check this... 
+                      query: JSON.stringify(query),
+                      serializerOid: serializerOid,
+                      sync: false,
+                    },
+                  },
+                };
+                console.log("serializerOid" + serializerOid);
+                //download
+                needle.post(address + "json", download, options, (err, resp) => {
+                  if (err) {
+                    console.log(err);
+                  }
+  
+                  let topicId = resp.body.response.result;
+                  //getDownloadData using topicId
+                  let downloadData = {
+                    token: token,
+                    request: {
+                      interface: "ServiceInterface",
+                      method: "getDownloadData",
+                      parameters: {
+                        topicId: topicId,
+                      },
+                    },
+                  };
+                  console.log("topic id" + topicId);
+  
+                  let progress = {
+                    token: token,
+                    request: {
+                      interface: "NotificationRegistryInterface",
+                      method: "getProgress",
+                      parameters: {
+                        topicId: topicId,
+                      },
+                    },
+                  };
+  
+                  needle.post(
+                    address + "json",
+                    progress,
+                    options,
+                    (err, resp) => {
+                      if (err) {
+                        console.log(err);
+                      }
+  
+                      console.log("progress: " + resp.body.response.result);
+  
+                      needle.post(
+                        address + "json",
+                        downloadData,
+                        options,
+                        (err, resp) => {
+                          if (err) {
+                            console.log(err);
+                          }
+  
+                          //console.log("downloadData" + resp.body.response.result.file);
+  
+                          var fileData = resp.body.response.result.file;
+                          var fileString = new Buffer(fileData, "base64");
+                          //let fileName = "model" + currentProjectID + revisionId.toString() + ".ifc";
+  
+                          //if !(fs.existsSync(path)
+                          fs.writeFile(
+                            fileName,
+                            fileString,
+                            function (err) {
+                              //localhost?
+                              if (err) throw err;
+                              //console.log('saved', rev.oid);
+                              //callback();
+                            }
+                          );
+  
+                          socket.emit("fileName", fileName);
+                        }
+                      );
+                    }
+                  );
+                });
+              }
+              //else load latest/estisting model
+               else { socket.emit("fileName", fileName);}
+            }
+          );
+        }
+      );
+    });
   });
 });
 
@@ -157,6 +330,50 @@ let loginData = {
     },
   },
 };
+
+
+//test getrevisionid
+// needle.post(address + "json", loginData, options, (err, resp) => {
+//   if (err) {
+//     console.log(err);
+//   }
+//   let token = resp.body.response.result;
+//       //get revision
+
+//       let getRevisionProject = {
+//         token: token,
+//         request: {
+//           interface: "ServiceInterface",
+//           method: "getAllRevisionsOfProject",
+//           parameters: {
+//             poid: 1769473,
+//           },
+//         },
+//       };
+
+//       needle.post(
+//         address + "json",
+//         getRevisionProject,
+//         options,
+//         (err, resp) => {
+//           if (err) {
+//             console.log(err);
+//           }
+
+//           let res = resp.body.response.result; //undefined?
+//           let reslist = [];
+
+//           res.forEach((element) => {
+//             //onsole.log(element.oid);
+//             reslist.push(element.oid);
+//             //map1.set(element.oid, element.name);
+//           });
+
+
+//           console.log("rev id: " + reslist);
+//         });
+//       });
+
 
 //create project and upload model
 
