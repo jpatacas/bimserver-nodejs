@@ -1,3 +1,6 @@
+//needs to fall back to loading the existing models/data if bimserver is down
+
+
 const needle = require("needle");
 const fs = require("fs");
 const cors = require("cors");
@@ -17,16 +20,57 @@ const server = http.createServer(app);
 
 const io = require("socket.io")(server, {
   cors: {
-    origin: "http://127.0.0.1:5500", //the client app
+    //origin: "http://127.0.0.1:5500", //the client app
+    origin: "*",
     methods: ["GET", "POST"],
   },
 });
+
+//bimserver details LOCAL
+let address = "http://localhost:8082/";
+
+let username = "admin@bimserver.org";
+let password = "admin";
+
+
+//bimserver details AWS
+// let address = "http://13.40.172.106:9099/bimserver/";
+
+// let username = "adminj@s8345537a.com";
+// let password = "HzYf-=StY=EFbpw;h3Zv";
+
+let options = { json: true };
+
+// let query = { //see examples at bimviews plugin
+//     type: {
+//       name: "IfcProduct",
+//       includeAllSubTypes: true,
+//     },
+//   };
+
+let query = {};
+
+//login
+
+let loginData = {
+  request: {
+    interface: "AuthInterface",
+    method: "login",
+    parameters: {
+      username: username,
+      password: password,
+    },
+  },
+};
+
+
+
 
 //app.get('/', (req, res) => res.send('Hello Multiverse!'))
 
 io.on("connection", (socket) => {
   console.log("a user connected");
-  socket.emit("hello", "world");
+  // socket.emit("hello", "world");
 
   // socket.on("howdy", (arg) => {
   //   console.log(arg);
@@ -302,34 +346,6 @@ server.listen(port, () =>
 );
 //app?
 
-//bimserver details
-let address = "http://localhost:8082/";
-
-let username = "admin@bimserver.org";
-let password = "admin";
-let options = { json: true };
-
-// let query = { //see examples at bimviews plugin
-//     type: {
-//       name: "IfcProduct",
-//       includeAllSubTypes: true,
-//     },
-//   };
-
-let query = {};
-
-//login
-
-let loginData = {
-  request: {
-    interface: "AuthInterface",
-    method: "login",
-    parameters: {
-      username: username,
-      password: password,
-    },
-  },
-};
 
 
 //test getrevisionid
