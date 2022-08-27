@@ -3,8 +3,6 @@ const needle = require("needle");
 const fs = require("fs");
 const cors = require("cors");
 const express = require("express");
-const { Server } = require("socket.io");
-const { Socket } = require("dgram");
 const http = require("http");
 
 //setup basic express server
@@ -23,10 +21,10 @@ const io = require("socket.io")(server, {
 });
 
 //bimserver details
-let address = "bimserver address";
+let address = "SERVER ADDRESS";
 
-let username = "bimserver username";
-let password = "your password";
+let username = "USERNAME";
+let password = "PASSWORD";
 
 let options = { json: true };
 
@@ -291,7 +289,7 @@ io.on("connection", (socket) => {
                   );
                 });
               }
-              //else load latest/estisting model
+              //else load latest/existing model
                else { socket.emit("fileName", fileName);}
             }
           );
