@@ -21,7 +21,7 @@ const io = require("socket.io")(server, {
 });
 
 //bimserver details
-let address = "SERVER ADDRESS";
+let address = "BIMSERVER_ADDRESS";
 
 let username = "USERNAME";
 let password = "PASSWORD";
@@ -56,7 +56,7 @@ io.on("connection", (socket) => {
   //create project
   socket.on(
     "createProject",
-    (arg) => {
+    (projName) => {
       needle.post(address + "json", loginData, options, (err, resp) => {
         if (err) {
           console.log(err);
@@ -66,13 +66,14 @@ io.on("connection", (socket) => {
 
         //console.log("logged in ", token);
 
+
         let addProjectData = {
           token: token,
           request: {
             interface: "ServiceInterface",
             method: "addProject",
             parameters: {
-              projectName: "testproject" + Math.random(),
+              projectName: projName,
               schema: "ifc2x3tc1",
             },
           },
@@ -83,7 +84,11 @@ io.on("connection", (socket) => {
           if (err) {
             console.log(err);
           }
+          console.log("created project: " + projName);
+          let poid = resp.body.response.result.oid
+          console.log("poid: " + poid);
         });
+
       });
       
     }
@@ -138,6 +143,113 @@ io.on("connection", (socket) => {
 
   });
 
+  
+  //create project, upload model, return poid
+  socket.on("uploadModel", (fileName, ifcURL) => {
+   // console.log("filename: " + fileName,"ifcurl: " + ifcURL), //ok
+   needle.post(address + "json", loginData, options, (err, resp) => {
+    if (err) {
+      console.log(err);
+    }
+
+    var token = resp.body.response.result;
+
+    //console.log("logged in ", token);
+
+
+    let addProjectData = {
+      token: token,
+      request: {
+        interface: "ServiceInterface",
+        method: "addProject",
+        parameters: {
+          projectName: fileName + Math.random(),
+          schema: "ifc2x3tc1",
+        },
+      },
+    };
+
+    //add a project
+    needle.post(address + "json", addProjectData, options, (err, resp) => {
+      if (err) {
+        console.log(err);
+      }
+      console.log("created project: " + fileName);
+      let poid = resp.body.response.result.oid
+      console.log("poid: " + poid);
+            
+
+            let serializerData = {
+                token: token,
+                request: {
+                    interface: "ServiceInterface",
+                    method: "getSuggestedDeserializerForExtension",
+                    parameters: {
+                      extension: "ifc",
+                      poid: poid
+                    }
+                  }
+            }
+
+            needle.post(address + 'json', serializerData, options, (err, resp) => {
+                if (err) {
+                    console.log(err)
+                }
+
+                let serid = resp.body.response.result.oid;
+                console.log("deserializer id: " + serid);
+
+               // work around to check in files using URL - can't get checkinSync to work 
+                let checkin = {
+                    token: token,
+                    request: {
+                      interface: "ServiceInterface",
+                      method: "checkinFromUrlSync",
+                      parameters: {
+                        poid: poid,
+                        comment: "",
+                        deserializerOid: serid,
+                        fileName: fileName + ".ifc",
+                        url: ifcURL,
+                        merge: "false"
+                      }
+                    }
+                  }
+              //console.log(ifcFile);
+
+          //doesnt work with checninsync or checkinasync?
+                // let checkin = 
+                // {
+                //   token: token,
+                //   request: {
+                //     interface: "ServiceInterface", 
+                //     method: "checkinSync", 
+                //     parameters: {
+                //       poid: poid,
+                //       comment: "",
+                //       deserializerOid: serid,
+                //       fileSize: "",
+                //       fileName: fileName + ".ifc",
+                //       data: ifcFile,
+                //       merge: "false"
+                //     }
+                //   }
+                // }
+                needle.post(address + 'json', checkin, options, (err, resp) => {
+                    if (err) {
+                        console.log(err)
+                    }
+                    console.log("checked in file: " + resp.body.response.result);
+                    socket.emit("newProjectData", fileName, poid);
+                    
+                })
+                
+            })
+            
+        })
+    })
+  
+  } );
   //get latest revision given project id
 
   socket.on("getLatestRevision", (currentProjectID) => {
