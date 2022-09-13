@@ -21,10 +21,10 @@ const io = require("socket.io")(server, {
 });
 
 //bimserver details
-let address = "http://localhost:8082/";
+let address = "BIMSERVER_ADDRESS";
 
-let username = "admin@bimserver.org";
-let password = "admin";
+let username = "USERNAME";
+let password = "PASSWORD";
 
 let options = { json: true };
 
@@ -215,7 +215,7 @@ io.on("connection", (socket) => {
                       }
                     }
                   }
-             // console.log(ifcFile);
+              //console.log(ifcFile);
 
           //doesnt work with checninsync or checkinasync?
                 // let checkin = 
@@ -235,43 +235,6 @@ io.on("connection", (socket) => {
                 //     }
                 //   }
                 // }
-
-                // let filePath = "C:\\Users\\jlpat\\Documents\\dev\\ifc.js\\course\\final\\models\\haus.ifc";
-
-                // //let filePath = ifcURL;
-
-                // fs.readFile(filePath, function (err, data) { 
-                //   let encodedFileData = new Buffer(data).toString('base64');
-                //   let checkin = 
-                //   {
-                //     token: token,
-                //     request: {
-                //       interface: "ServiceInterface", 
-                //       method: "checkinSync", 
-                //       parameters: {
-                //         poid: poid,
-                //         comment: "",
-                //         deserializerOid: serid,
-                //         fileSize: encodedFileData.length,
-                //         fileName: fileName + ".ifc",
-                //         data: encodedFileData,
-                //         merge: "false"
-                //       }
-                //     }
-                //   }
-
-                //   needle.post(address + 'json', checkin, options, (err, resp) => {
-                //     if (err) {
-                //         console.log(err)
-                //     }
-                //     console.log("checked in file: " + resp.body.response.result);
-                //     socket.emit("newProjectData", fileName, poid);
-                    
-                // })
-
-                // })
-
-
                 needle.post(address + 'json', checkin, options, (err, resp) => {
                     if (err) {
                         console.log(err)
