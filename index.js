@@ -1,4 +1,3 @@
-
 const needle = require("needle");
 const fs = require("fs");
 const cors = require("cors");
@@ -50,59 +49,51 @@ let loginData = {
   },
 };
 
+const makeRequest = async (endpoint, data) => {
+  try {
+    const response = await needle("post", address + endpoint, data, options);
+    return response.body.response.result;
+  } catch (error) {
+    console.error(error);
+    throw error;
+  }
+};
+
 io.on("connection", (socket) => {
   console.log("a user connected");
 
   //create project
-  socket.on(
-    "createProject",
-    (projName) => {
-      needle.post(address + "json", loginData, options, (err, resp) => {
-        if (err) {
-          console.log(err);
-        }
+  socket.on("createProject", async (projName) => {
+    try {
+      const token = await makeRequest("json", loginData);
 
-        var token = resp.body.response.result;
-
-        //console.log("logged in ", token);
-
-
-        let addProjectData = {
-          token: token,
-          request: {
-            interface: "ServiceInterface",
-            method: "addProject",
-            parameters: {
-              projectName: projName,
-              schema: "ifc2x3tc1",
-            },
+      const addProjectData = {
+        token: token,
+        request: {
+          interface: "ServiceInterface",
+          method: "addProject",
+          parameters: {
+            projectName: projName,
+            schema: "ifc2x3tc1",
           },
-        };
+        },
+      };
 
-        //add a project
-        needle.post(address + "json", addProjectData, options, (err, resp) => {
-          if (err) {
-            console.log(err);
-          }
-          console.log("created project: " + projName);
-          let poid = resp.body.response.result.oid
-          console.log("poid: " + poid);
-        });
-
-      });
-      
+      const resp = await makeRequest("json", addProjectData);
+      console.log("created project: " + projName);
+      const poid = resp.oid;
+      console.log("poid: " + poid);
+    } catch (error) {
+      console.error(error);
     }
-  );
+  });
 
   //get list of projects in bimserver
-  socket.on("getProjects", (arg) => {
-    needle.post(address + "json", loginData, options, (err, resp) => {
-      if (err) {
-        console.log(err);
-      }
-      let token = resp.body.response.result;
+  socket.on("getProjects", async (arg) => {
+    try {
+      const token = await makeRequest("json", loginData);
 
-      let getAllProjectsData = {
+      const getAllProjectsData = {
         token: token,
         request: {
           interface: "ServiceInterface",
@@ -114,152 +105,86 @@ io.on("connection", (socket) => {
         },
       };
 
-      needle.post(
-        address + "json",
-        getAllProjectsData,
-        options,
-        (err, resp) => {
-          if (err) {
-            console.log(err);
-          }
-          let res = resp.body.response.result;
-          let reslist = [];
-          let resname = [];
-          //let map1 = new Map();
+      const resp = await makeRequest("json", getAllProjectsData);
+      const res = resp.result;
+      const reslist = res.map((element) => element.oid);
+      const resname = res.map((element) => element.name);
 
-          res.forEach((element) => {
-            reslist.push(element.oid);
-            //map1.set(element.oid, element.name);
-          });
-
-          res.forEach((element) => {
-            resname.push(element.name);
-          });
-
-          socket.emit("projectIds", resname, reslist);
-        }
-      );
-    });
-
+      socket.emit("projectIds", resname, reslist);
+    } catch (error) {
+      console.error(error);
+    }
   });
 
-  
   //create project, upload model, return poid
-  socket.on("uploadModel", (fileName, ifcURL) => {
-   // console.log("filename: " + fileName,"ifcurl: " + ifcURL), //ok
-   needle.post(address + "json", loginData, options, (err, resp) => {
-    if (err) {
-      console.log(err);
-    }
+  socket.on("uploadModel", async (fileName, ifcURL) => {
+    try {
+      const token = await makeRequest("json", loginData);
 
-    var token = resp.body.response.result;
-
-    //console.log("logged in ", token);
-
-
-    let addProjectData = {
-      token: token,
-      request: {
-        interface: "ServiceInterface",
-        method: "addProject",
-        parameters: {
-          projectName: fileName + Math.random(),
-          schema: "ifc2x3tc1",
+      const addProjectData = {
+        token: token,
+        request: {
+          interface: "ServiceInterface",
+          method: "addProject",
+          parameters: {
+            projectName: fileName + Math.random(),
+            schema: "ifc2x3tc1",
+          },
         },
-      },
-    };
+      };
 
-    //add a project
-    needle.post(address + "json", addProjectData, options, (err, resp) => {
-      if (err) {
-        console.log(err);
-      }
+      const resp = await makeRequest("json", addProjectData);
       console.log("created project: " + fileName);
-      let poid = resp.body.response.result.oid
+      const poid = resp.oid;
       console.log("poid: " + poid);
-            
 
-            let serializerData = {
-                token: token,
-                request: {
-                    interface: "ServiceInterface",
-                    method: "getSuggestedDeserializerForExtension",
-                    parameters: {
-                      extension: "ifc",
-                      poid: poid
-                    }
-                  }
-            }
+      const serializerData = {
+        token: token,
+        request: {
+          interface: "ServiceInterface",
+          method: "getSuggestedDeserializerForExtension",
+          parameters: {
+            extension: "ifc",
+            poid: poid,
+          },
+        },
+      };
 
-            needle.post(address + 'json', serializerData, options, (err, resp) => {
-                if (err) {
-                    console.log(err)
-                }
+      const serializerResp = await makeRequest("json", serializerData);
+      const serid = serializerResp.oid;
+      console.log("deserializer id: " + serid);
 
-                let serid = resp.body.response.result.oid;
-                console.log("deserializer id: " + serid);
+      const checkin = {
+        token: token,
+        request: {
+          interface: "ServiceInterface",
+          method: "checkinFromUrlSync",
+          parameters: {
+            poid: poid,
+            comment: "",
+            deserializerOid: serid,
+            fileName: fileName + ".ifc",
+            url: ifcURL,
+            merge: "false",
+          },
+        },
+      };
 
-               // work around to check in files using URL - can't get checkinSync to work 
-                let checkin = {
-                    token: token,
-                    request: {
-                      interface: "ServiceInterface",
-                      method: "checkinFromUrlSync",
-                      parameters: {
-                        poid: poid,
-                        comment: "",
-                        deserializerOid: serid,
-                        fileName: fileName + ".ifc",
-                        url: ifcURL,
-                        merge: "false"
-                      }
-                    }
-                  }
-              //console.log(ifcFile);
+      const checkinResp = await makeRequest("json", checkin);
+      console.log("checked in file: " + checkinResp.result);
 
-          //doesnt work with checninsync or checkinasync?
-                // let checkin = 
-                // {
-                //   token: token,
-                //   request: {
-                //     interface: "ServiceInterface", 
-                //     method: "checkinSync", 
-                //     parameters: {
-                //       poid: poid,
-                //       comment: "",
-                //       deserializerOid: serid,
-                //       fileSize: "",
-                //       fileName: fileName + ".ifc",
-                //       data: ifcFile,
-                //       merge: "false"
-                //     }
-                //   }
-                // }
-                needle.post(address + 'json', checkin, options, (err, resp) => {
-                    if (err) {
-                        console.log(err)
-                    }
-                    console.log("checked in file: " + resp.body.response.result);
-                    socket.emit("newProjectData", fileName, poid);
-                    
-                })
-                
-            })
-            
-        })
-    })
-  
-  } );
+      socket.emit("newProjectData", fileName, poid);
+    } catch (error) {
+      console.error(error);
+    }
+  });
+
   //get latest revision given project id
+  socket.on("getLatestRevision", async (currentProjectID) => {
+    try {
+      const token = await makeRequest("json", loginData);
 
-  socket.on("getLatestRevision", (currentProjectID) => {
-    needle.post(address + "json", loginData, options, (err, resp) => {
-      if (err) {
-        console.log(err);
-      }
-      let token = resp.body.response.result;
-      //getSerializerByContentType
-      let serializerByContentType = {
+      const serializerByContentType = {
         token: token,
         request: {
           interface: "ServiceInterface",
@@ -269,149 +194,77 @@ io.on("connection", (socket) => {
           },
         },
       };
-      needle.post(
-        address + "json",
-        serializerByContentType,
-        options,
-        (err, resp) => {
-          if (err) {
-            console.log(err);
-          }
 
-          let serializerOid = resp.body.response.result.oid;
-
-          //get revision
-
-          let getRevisionProject = {
-            token: token,
-            request: {
-              interface: "ServiceInterface",
-              method: "getAllRevisionsOfProject",
-              parameters: {
-                poid: currentProjectID,
-              },
-            },
-          };
-
-          needle.post(
-            address + "json",
-            getRevisionProject,
-            options,
-            (err, resp) => {
-              if (err) {
-                console.log(err);
-              }
-
-              let res = resp.body.response.result;
-
-              let revisionId = [];
-
-              res.forEach((element) => {
-                revisionId.push(element.oid);
-                //map1.set(element.oid, element.name);
-              });
-    
-              console.log("rev id: " + revisionId);
-
-              let fileName = "model" + currentProjectID + revisionId.toString() + ".ifc";
-
-              if (!fs.existsSync("./" + fileName))
-              {
-                let download = {
-                  token: token,
-                  request: {
-                    interface: "ServiceInterface",
-                    method: "download",
-                    parameters: {
-                      roids: revisionId, //array/list of revisions, need to check this... 
-                      query: JSON.stringify(query),
-                      serializerOid: serializerOid,
-                      sync: false,
-                    },
-                  },
-                };
-                console.log("serializerOid" + serializerOid);
-                //download
-                needle.post(address + "json", download, options, (err, resp) => {
-                  if (err) {
-                    console.log(err);
-                  }
-  
-                  let topicId = resp.body.response.result;
-                  //getDownloadData using topicId
-                  let downloadData = {
-                    token: token,
-                    request: {
-                      interface: "ServiceInterface",
-                      method: "getDownloadData",
-                      parameters: {
-                        topicId: topicId,
-                      },
-                    },
-                  };
-                  console.log("topic id" + topicId);
-  
-                  let progress = {
-                    token: token,
-                    request: {
-                      interface: "NotificationRegistryInterface",
-                      method: "getProgress",
-                      parameters: {
-                        topicId: topicId,
-                      },
-                    },
-                  };
-  
-                  needle.post(
-                    address + "json",
-                    progress,
-                    options,
-                    (err, resp) => {
-                      if (err) {
-                        console.log(err);
-                      }
-  
-                      console.log("progress: " + resp.body.response.result);
-  
-                      needle.post(
-                        address + "json",
-                        downloadData,
-                        options,
-                        (err, resp) => {
-                          if (err) {
-                            console.log(err);
-                          }
-    
-                          var fileData = resp.body.response.result.file;
-                          var fileString = new Buffer(fileData, "base64");
-
-                          fs.writeFile(
-                            fileName,
-                            fileString,
-                            function (err) {
-
-                              if (err) throw err;
-                            }
-                          );
-  
-                          socket.emit("fileName", fileName);
-                        }
-                      );
-                    }
-                  );
-                });
-              }
-              //else load latest/existing model
-               else { socket.emit("fileName", fileName);}
-            }
-          );
-        }
+      const serializerResp = await makeRequest(
+        "json",
+        serializerByContentType
       );
-    });
+      const serializerOid = serializerResp.oid;
+
+      const getRevisionProject = {
+        token: token,
+        request: {
+          interface: "ServiceInterface",
+          method: "getAllRevisionsOfProject",
+          parameters: {
+            poid: currentProjectID,
+          },
+        },
+      };
+
+      const revisionResp = await makeRequest("json", getRevisionProject);
+      const revisionId = revisionResp.result.map((element) => element.oid);
+
+      const fileName =
+        "model" + currentProjectID + revisionId.toString() + ".ifc";
+
+      if (!fs.existsSync("./" + fileName)) {
+        const download = {
+          token: token,
+          request: {
+            interface: "ServiceInterface",
+            method: "download",
+            parameters: {
+              roids: revisionId,
+              query: JSON.stringify(query),
+              serializerOid: serializerOid,
+              sync: false,
+            },
+          },
+        };
+
+        const downloadResp = await makeRequest("json", download);
+        const topicId = downloadResp.result;
+
+        const downloadData = {
+          token: token,
+          request: {
+            interface: "ServiceInterface",
+            method: "getDownloadData",
+            parameters: {
+              topicId: topicId,
+            },
+          },
+        };
+
+        const downloadDataResp = await makeRequest("json", downloadData);
+        const fileData = downloadDataResp.result.file;
+        const fileString = new Buffer(fileData, "base64");
+
+        fs.writeFile(fileName, fileString, function (err) {
+          if (err) throw err;
+        });
+
+        socket.emit("fileName", fileName);
+      } else {
+        socket.emit("fileName", fileName);
+      }
+    } catch (error) {
+      console.error(error);
+    }
   });
 });
 
 server.listen(port, () =>
   console.log(`Example app listening on port ${port}!`)
 );
-
